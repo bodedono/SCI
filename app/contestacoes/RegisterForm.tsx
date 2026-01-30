@@ -8,19 +8,22 @@ import { Select } from "@/components/ui/Select";
 
 // ... (Keep Data Arrays: RESTAURANTES, MOTIVOS_GERAIS, etc.)
 const RESTAURANTES = [
-    { label: "Burguer do Nô Rio Mar", value: "Burguer do Nô Rio Mar", group: "Burguer do Nô" },
-    { label: "Burguer do Nô Almoço", value: "Burguer do Nô Almoco", group: "Burguer do Nô" },
-    { label: "Burguer do Nô Guararapes", value: "Burguer do Nô Guararapes", group: "Burguer do Nô" },
-    { label: "Burguer do Nô Recife Boa Viagem", value: "Burguer do Nô Recife Boa Viagem", group: "Burguer do Nô" },
-    { label: "Italiano Pizzas Guararapes", value: "Italiano Pizzas Guararapes", group: "Italiano Pizzas" },
-    { label: "Italiano Pizzas Olinda", value: "Italiano Pizzas Olinda", group: "Italiano Pizzas" },
-    { label: "Italiano Pizzas Afogados Recife", value: "Italiano Pizzas Afogados Recife", group: "Italiano Pizzas" },
-    { label: "Italiano Pizzas Tacaruna", value: "Italiano Pizzas Tacaruna", group: "Italiano Pizzas" },
+    // Bode do Nô
+    { label: "Bode do Nô Afogados", value: "Bode do Nô Afogados", group: "Bode do Nô" },
+    { label: "Bode do Nô Boa Viagem", value: "Bode do Nô Boa Viagem", group: "Bode do Nô" },
+    { label: "Bode do Nô Guararapes", value: "Bode do Nô Guararapes", group: "Bode do Nô" },
     { label: "Bode do Nô Olinda", value: "Bode do Nô Olinda", group: "Bode do Nô" },
     { label: "Bode do Nô Tacaruna", value: "Bode do Nô Tacaruna", group: "Bode do Nô" },
-    { label: "Bode do Nô Guararapes", value: "Bode do Nô Guararapes", group: "Bode do Nô" },
-    { label: "Bode do Nô Boa Viagem", value: "Bode do Nô Boa Viagem", group: "Bode do Nô" },
-    { label: "Bode do Nô Afogados", value: "Bode do Nô Afogados", group: "Bode do Nô" },
+    // Burguer do Nô
+    { label: "Burguer do Nô Almoço", value: "Burguer do Nô Almoço", group: "Burguer do Nô" },
+    { label: "Burguer do Nô Boa Viagem", value: "Burguer do Nô Boa Viagem", group: "Burguer do Nô" },
+    { label: "Burguer do Nô Guararapes", value: "Burguer do Nô Guararapes", group: "Burguer do Nô" },
+    { label: "Burguer do Nô Rio Mar", value: "Burguer do Nô Rio Mar", group: "Burguer do Nô" },
+    // Italianô Pizzas
+    { label: "Italianô Pizzas Afogados", value: "Italianô Pizzas Afogados", group: "Italianô Pizzas" },
+    { label: "Italianô Pizzas Guararapes", value: "Italianô Pizzas Guararapes", group: "Italianô Pizzas" },
+    { label: "Italianô Pizzas Olinda", value: "Italianô Pizzas Olinda", group: "Italianô Pizzas" },
+    { label: "Italianô Pizzas Tacaruna", value: "Italianô Pizzas Tacaruna", group: "Italianô Pizzas" },
 ];
 
 const MOTIVOS_GERAIS = [

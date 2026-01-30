@@ -103,9 +103,15 @@ const MAPEAMENTO_RESTAURANTES: Record<string, string> = {
     'BURGUER DO NÔ - (BOA VIAGEM)': 'Burguer do Nô Boa Viagem',
     'BURGUER DO NÔ BOA VIAGEM': 'Burguer do Nô Boa Viagem',
     'BURGUER DO NO BOA VIAGEM': 'Burguer do Nô Boa Viagem',
-    'BURGUER DO NÔ (RM)': 'Burguer do Nô RM',
-    'BURGUER DO NÔ RM': 'Burguer do Nô RM',
-    'BURGUER DO NÔ - RECIFE': 'Burguer do Nô Guararapes',
+    'BURGUER DO NÔ (RM)': 'Burguer do Nô Rio Mar',
+    'BURGUER DO NÔ RM': 'Burguer do Nô Rio Mar',
+    'BURGUER DO NO RM': 'Burguer do Nô Rio Mar',
+    'BURGUER DO NÔ RIO MAR': 'Burguer do Nô Rio Mar',
+    'BURGUER DO NO RIO MAR': 'Burguer do Nô Rio Mar',
+    'BURGUER DO NÔ - RECIFE': 'Burguer do Nô Boa Viagem',
+    'BURGUER DO NÔ (RECIFE)': 'Burguer do Nô Boa Viagem',
+    'BURGUER DO NÔ RECIFE': 'Burguer do Nô Boa Viagem',
+    'BURGUER DO NO RECIFE': 'Burguer do Nô Boa Viagem',
 
     // Italianô Pizzas
     'ITALIANÔ PIZZAS (GUA)': 'Italianô Pizzas Guararapes',
@@ -159,17 +165,17 @@ export function normalizarNomeRestaurante(nomeIfood: string): string {
 
     // BURGUER DO NÔ - detecta variações
     if (nomeLower.includes('burguer')) {
-        if (nomeLower.includes('(guara)') || nomeLower.includes('guararapes') || nomeLower.includes('guara')) {
+        if (nomeLower.includes('(guara)') || nomeLower.includes('guararapes')) {
             return 'Burguer do Nô Guararapes';
         }
         if (nomeLower.includes('(almoço)') || nomeLower.includes('(almoco)') || nomeLower.includes('almoço') || nomeLower.includes('almoco')) {
             return 'Burguer do Nô Almoço';
         }
-        if (nomeLower.includes('boa viagem') || nomeLower.includes('bv')) {
+        if (nomeLower.includes('boa viagem') || nomeLower.includes('bv') || nomeLower.includes('recife')) {
             return 'Burguer do Nô Boa Viagem';
         }
-        if (nomeLower.includes('(rm)') || nomeLower.includes(' rm')) {
-            return 'Burguer do Nô RM';
+        if (nomeLower.includes('(rm)') || nomeLower.includes(' rm') || nomeLower.includes('rio mar')) {
+            return 'Burguer do Nô Rio Mar';
         }
     }
 
