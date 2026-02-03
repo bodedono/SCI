@@ -8,12 +8,15 @@ import { Search, Loader2, ChevronLeft, ChevronRight, Edit2, Trash2, Filter, X, R
 import EditModal from "@/components/EditModal";
 import clsx from "clsx";
 
-// Helper para parsear data DD/MM/YYYY para Date
+// Helper para parsear data DD/MM/YYYY ou DD/MM/YYYY HH:MM:SS para Date
 const parseDate = (dateStr: string): Date | null => {
     if (!dateStr) return null;
     if (dateStr.includes('/')) {
-        const [day, month, year] = dateStr.split('/');
-        return new Date(`${year}-${month}-${day}`);
+        // Remove a parte da hora se existir (ex: "07/01/2026 11:35:14" -> "07/01/2026")
+        const datePart = dateStr.split(' ')[0];
+        const [day, month, year] = datePart.split('/');
+        const d = new Date(`${year}-${month}-${day}`);
+        return isNaN(d.getTime()) ? null : d;
     }
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? null : d;
