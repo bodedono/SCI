@@ -1,6 +1,6 @@
 "use client";
 
-import { FileUp, CheckCircle, Upload, AlertTriangle, XCircle, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { FileUp, CheckCircle, Upload, AlertTriangle, XCircle, FileSpreadsheet, RefreshCw, ArrowUpCircle } from "lucide-react";
 import { useState } from "react";
 import FileDropzone from "@/components/FileDropzone";
 import { Button } from "@/components/ui/Button";
@@ -10,11 +10,13 @@ interface ImportResult {
     totalLinhas: number;
     pedidosCancelados: number;
     pedidosImportados: number;
+    pedidosAtualizados: number;
     pedidosDuplicados: number;
     pedidosNaoCancelados: number;
     tempoProcessamento: number;
     detalhes: {
         importados: string[];
+        atualizados: string[];
         duplicados: string[];
         naoCancelados: string[];
     };
@@ -101,7 +103,7 @@ export default function ImportacaoPage() {
                     </div>
 
                     {/* Estatisticas */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-subtle)] text-center">
                             <p className="text-[10px] md:text-xs uppercase font-bold text-[var(--text-muted)] mb-1">Total de Linhas</p>
                             <p className="text-2xl md:text-3xl font-bold text-[var(--text-main)] font-serif">{result.totalLinhas}</p>
@@ -111,12 +113,16 @@ export default function ImportacaoPage() {
                             <p className="text-2xl md:text-3xl font-bold text-[var(--secondary)] font-serif">{result.pedidosCancelados}</p>
                         </div>
                         <div className="bg-[var(--status-success-bg)] p-4 rounded-xl border border-[var(--status-success-text)]/30 text-center">
-                            <p className="text-[10px] md:text-xs uppercase font-bold text-[var(--status-success-text)] mb-1">Importados</p>
+                            <p className="text-[10px] md:text-xs uppercase font-bold text-[var(--status-success-text)] mb-1">Novos</p>
                             <p className="text-2xl md:text-3xl font-bold text-[var(--status-success-text)] font-serif">{result.pedidosImportados}</p>
                         </div>
+                        <div className="bg-blue-500/10 p-4 rounded-xl border border-blue-500/30 text-center">
+                            <p className="text-[10px] md:text-xs uppercase font-bold text-blue-500 mb-1">Atualizados</p>
+                            <p className="text-2xl md:text-3xl font-bold text-blue-500 font-serif">{result.pedidosAtualizados}</p>
+                        </div>
                         <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-subtle)] text-center">
-                            <p className="text-[10px] md:text-xs uppercase font-bold text-[var(--text-muted)] mb-1">Duplicados</p>
-                            <p className="text-2xl md:text-3xl font-bold text-[var(--status-error-text)] font-serif">{result.pedidosDuplicados}</p>
+                            <p className="text-[10px] md:text-xs uppercase font-bold text-[var(--text-muted)] mb-1">Sem Alteracao</p>
+                            <p className="text-2xl md:text-3xl font-bold text-[var(--text-muted)] font-serif">{result.pedidosDuplicados}</p>
                         </div>
                     </div>
 
@@ -126,13 +132,13 @@ export default function ImportacaoPage() {
                             <h3 className="font-bold text-[var(--text-main)]">Resumo da Importacao</h3>
                         </div>
                         <div className="p-4 space-y-4">
-                            {/* Importados */}
+                            {/* Importados (novos) */}
                             {result.pedidosImportados > 0 && (
                                 <div className="flex items-start gap-3">
                                     <CheckCircle className="w-5 h-5 text-[var(--status-success-text)] mt-0.5 shrink-0" />
                                     <div>
                                         <p className="font-medium text-[var(--text-main)]">
-                                            {result.pedidosImportados} pedido(s) importado(s) com sucesso
+                                            {result.pedidosImportados} pedido(s) novo(s) importado(s)
                                         </p>
                                         <p className="text-sm text-[var(--text-muted)] mt-1">
                                             Pedidos: {result.detalhes.importados.slice(0, 10).join(', ')}
@@ -142,16 +148,32 @@ export default function ImportacaoPage() {
                                 </div>
                             )}
 
-                            {/* Duplicados */}
-                            {result.pedidosDuplicados > 0 && (
+                            {/* Atualizados */}
+                            {result.pedidosAtualizados > 0 && (
                                 <div className="flex items-start gap-3">
-                                    <AlertTriangle className="w-5 h-5 text-[var(--secondary)] mt-0.5 shrink-0" />
+                                    <ArrowUpCircle className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
                                     <div>
                                         <p className="font-medium text-[var(--text-main)]">
-                                            {result.pedidosDuplicados} pedido(s) ja existiam no sistema
+                                            {result.pedidosAtualizados} pedido(s) atualizado(s) automaticamente
                                         </p>
                                         <p className="text-sm text-[var(--text-muted)] mt-1">
-                                            Pedidos ignorados: {result.detalhes.duplicados.slice(0, 10).join(', ')}
+                                            Pedidos: {result.detalhes.atualizados.slice(0, 10).join(', ')}
+                                            {result.detalhes.atualizados.length > 10 && ` e mais ${result.detalhes.atualizados.length - 10}...`}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Sem alteracao */}
+                            {result.pedidosDuplicados > 0 && (
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-[var(--text-muted)] mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="font-medium text-[var(--text-main)]">
+                                            {result.pedidosDuplicados} pedido(s) ja existiam sem alteracoes
+                                        </p>
+                                        <p className="text-sm text-[var(--text-muted)] mt-1">
+                                            Pedidos: {result.detalhes.duplicados.slice(0, 10).join(', ')}
                                             {result.detalhes.duplicados.length > 10 && ` e mais ${result.detalhes.duplicados.length - 10}...`}
                                         </p>
                                     </div>
@@ -173,16 +195,16 @@ export default function ImportacaoPage() {
                                 </div>
                             )}
 
-                            {/* Nenhum importado */}
-                            {result.pedidosImportados === 0 && (
+                            {/* Nenhum novo importado */}
+                            {result.pedidosImportados === 0 && result.pedidosAtualizados === 0 && (
                                 <div className="flex items-start gap-3">
                                     <AlertTriangle className="w-5 h-5 text-[var(--secondary)] mt-0.5 shrink-0" />
                                     <div>
                                         <p className="font-medium text-[var(--text-main)]">
-                                            Nenhum pedido novo foi importado
+                                            Nenhum pedido novo ou atualizado
                                         </p>
                                         <p className="text-sm text-[var(--text-muted)] mt-1">
-                                            Todos os pedidos cancelados ja existiam no sistema ou a planilha nao continha pedidos cancelados.
+                                            Todos os pedidos cancelados ja existiam no sistema sem alteracoes, ou a planilha nao continha pedidos cancelados.
                                         </p>
                                     </div>
                                 </div>
@@ -240,7 +262,7 @@ export default function ImportacaoPage() {
                     <p><strong>Como funciona a importacao:</strong></p>
                     <ul className="list-disc list-inside text-[var(--text-muted)] space-y-0.5">
                         <li>Apenas pedidos com status <strong>"CANCELADO"</strong> serao importados</li>
-                        <li>Pedidos que ja existem no sistema serao ignorados (sem duplicatas)</li>
+                        <li>Pedidos que ja existem serao <strong>atualizados automaticamente</strong> se houver mudancas (ex: status, valor recuperado)</li>
                         <li>O responsavel e motivo especifico serao classificados automaticamente</li>
                         <li>Pedidos com reembolso automatico do iFood ja virao como "FINALIZADO"</li>
                     </ul>

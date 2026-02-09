@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSheetData, appendMultipleRows, getLastRow } from '@/lib/googleSheets';
+import { getSheetData, appendMultipleRows, getLastRow, batchUpdateCells } from '@/lib/googleSheets';
 import * as XLSX from 'xlsx';
 import { normalizarNomeRestaurante, mapearMotivo, determinarStatusImportacao } from '@/utils/mappings';
 
@@ -28,11 +28,13 @@ interface ImportResult {
     totalLinhas: number;
     pedidosCancelados: number;
     pedidosImportados: number;
+    pedidosAtualizados: number;
     pedidosDuplicados: number;
     pedidosNaoCancelados: number;
     tempoProcessamento: number;
     detalhes: {
         importados: string[];
+        atualizados: string[];
         duplicados: string[];
         naoCancelados: string[];
     };
@@ -133,37 +135,121 @@ export async function POST(request: Request) {
         // ETAPA 3: Buscar pedidos existentes (1 chamada API)
         // ============================================
         const existingData = await getSheetData(RANGE);
-        // Cria Set com chave unica: numero do pedido + restaurante NORMALIZADO
-        // Isso permite que o mesmo numero de pedido exista em filiais diferentes
-        // E garante que variacoes do mesmo nome (com/sem hifen) sejam tratadas como iguais
-        const existingPedidos = new Set(
-            existingData.map((row: any) => {
-                const numeroPedido = String(row[2] || ''); // Coluna C
-                const restaurante = String(row[3] || '');   // Coluna D
-                // IMPORTANTE: Normaliza o restaurante do Google Sheets tambem!
-                const restauranteNormalizado = normalizarNomeRestaurante(restaurante);
-                return createUniqueKey(numeroPedido, restauranteNormalizado);
-            })
-        );
+        // Cria Map com chave unica: numero do pedido + restaurante NORMALIZADO
+        // Armazena o indice da linha e os dados atuais para poder comparar e atualizar
+        const existingPedidosMap = new Map<string, { rowIndex: number; data: any[] }>();
+        existingData.forEach((row: any, index: number) => {
+            const numeroPedido = String(row[2] || ''); // Coluna C
+            const restaurante = String(row[3] || '');   // Coluna D
+            const restauranteNormalizado = normalizarNomeRestaurante(restaurante);
+            const uniqueKey = createUniqueKey(numeroPedido, restauranteNormalizado);
+            existingPedidosMap.set(uniqueKey, {
+                rowIndex: index + 3, // Dados comecam na linha 3 da planilha
+                data: row
+            });
+        });
 
-        // Separar novos e duplicados
+        // Separar novos e existentes
         const novos: ImportedRow[] = [];
-        const duplicados: ImportedRow[] = [];
+        const existentes: ImportedRow[] = [];
 
         for (const row of cancelados) {
-            // Cria chave unica com numero + restaurante normalizado
             const restauranteNormalizado = normalizarNomeRestaurante(row.restaurante);
             const uniqueKey = createUniqueKey(row.numeroPedido, restauranteNormalizado);
-            
-            if (existingPedidos.has(uniqueKey)) {
-                duplicados.push(row);
+
+            if (existingPedidosMap.has(uniqueKey)) {
+                existentes.push(row);
             } else {
                 novos.push(row);
             }
         }
 
         // ============================================
-        // ETAPA 4: Preparar todas as linhas para batch insert
+        // ETAPA 4: Atualizar pedidos existentes que mudaram
+        // ============================================
+        // Prioridade de status: AGUARDANDO(1) < EM ANALISE(2) < FINALIZADO/CANCELADO(3)
+        // So atualiza para status "mais final", nunca regride
+        const STATUS_PRIORIDADE: Record<string, number> = {
+            'AGUARDANDO': 1,
+            'EM ANALISE': 2,
+            'FINALIZADO': 3,
+            'CANCELADO': 3,
+        };
+
+        const atualizados: ImportedRow[] = [];
+        const duplicadosSemAlteracao: ImportedRow[] = [];
+        const batchUpdates: { range: string; values: any[][] }[] = [];
+
+        for (const row of existentes) {
+            const restauranteNormalizado = normalizarNomeRestaurante(row.restaurante);
+            const uniqueKey = createUniqueKey(row.numeroPedido, restauranteNormalizado);
+            const existing = existingPedidosMap.get(uniqueKey);
+            if (!existing) continue;
+
+            // Determinar novo status e valor a partir dos dados importados
+            const novoStatus = determinarStatusImportacao(row.motivoNaoContestar, row.valorLiquido);
+            const novoValorRecuperado = formatToBRL(row.valorLiquido);
+            const dataFormatada = formatDate(row.dataHora);
+
+            // Dados atuais na planilha
+            const statusAtual = String(existing.data[7] || '').trim();   // Coluna H
+            const valorRecuperadoAtual = String(existing.data[10] || '').trim(); // Coluna K
+
+            const prioridadeAtual = STATUS_PRIORIDADE[statusAtual] || 0;
+            const prioridadeNova = STATUS_PRIORIDADE[novoStatus] || 0;
+
+            let shouldUpdate = false;
+            let statusFinal = statusAtual;
+            let dataResolucao = String(existing.data[8] || '');
+            let resultado = String(existing.data[9] || '');
+            let valorRecuperadoFinal = valorRecuperadoAtual;
+
+            // Atualiza status somente se o novo for mais final que o atual
+            if (prioridadeNova > prioridadeAtual) {
+                statusFinal = novoStatus;
+                shouldUpdate = true;
+
+                if (novoStatus === 'FINALIZADO') {
+                    dataResolucao = dataFormatada;
+                    resultado = 'Reembolso automático iFood';
+                } else if (novoStatus === 'CANCELADO') {
+                    dataResolucao = dataFormatada;
+                    resultado = row.motivoNaoContestar || 'Cancelado pela loja';
+                }
+            }
+
+            // Atualiza valor recuperado se mudou e o novo valor é positivo
+            if (novoValorRecuperado !== valorRecuperadoAtual && row.valorLiquido > 0) {
+                valorRecuperadoFinal = novoValorRecuperado;
+                shouldUpdate = true;
+            }
+
+            if (shouldUpdate) {
+                const rowNum = existing.rowIndex;
+                batchUpdates.push({
+                    range: `'${SHEET_NAME}'!H${rowNum}:L${rowNum}`,
+                    values: [[
+                        statusFinal,
+                        dataResolucao,
+                        resultado,
+                        valorRecuperadoFinal,
+                        `Contestavel: ${row.contestavel}. Atualizado via importacao.`
+                    ]]
+                });
+                atualizados.push(row);
+            } else {
+                duplicadosSemAlteracao.push(row);
+            }
+        }
+
+        // Executar batch update dos registros alterados
+        if (batchUpdates.length > 0) {
+            await batchUpdateCells(batchUpdates);
+            console.log(`[Importacao] Atualizados ${batchUpdates.length} registros existentes`);
+        }
+
+        // ============================================
+        // ETAPA 5: Preparar novas linhas para batch insert
         // ============================================
         const importados: string[] = [];
         const allRows: any[][] = [];
@@ -182,12 +268,8 @@ export async function POST(request: Request) {
                 // Formatar data
                 const dataFormatada = formatDate(row.dataHora);
 
-                // NOVA LOGICA: Determina status baseado no "MOTIVO DA IMPOSSIBILIDADE DE CONTESTAR"
-                // - CANCELADO: quando a loja cancelou ou aceitou cancelamento (não faz sentido contestar)
-                // - FINALIZADO: quando iFood já reembolsou
-                // - AGUARDANDO: demais casos (precisa contestar)
                 const statusInicial = determinarStatusImportacao(row.motivoNaoContestar, row.valorLiquido);
-                const valorRecuperado = row.valorLiquido; // Direto da planilha
+                const valorRecuperado = row.valorLiquido;
 
                 // Define data de resolução e resultado baseado no status
                 let dataResolucao = '';
@@ -200,7 +282,6 @@ export async function POST(request: Request) {
                     dataResolucao = dataFormatada;
                     resultado = row.motivoNaoContestar || 'Cancelado pela loja';
                 }
-                // AGUARDANDO: dataResolucao e resultado ficam vazios
 
                 const rowValues = [
                     currentId,                                              // A: ID
@@ -225,7 +306,7 @@ export async function POST(request: Request) {
             }
 
             // ============================================
-            // ETAPA 5: Batch insert - UMA UNICA chamada API
+            // ETAPA 6: Batch insert - UMA UNICA chamada API
             // ============================================
             const insertResult = await appendMultipleRows(SHEET_NAME, allRows);
             console.log('[Importacao] Insert result:', JSON.stringify(insertResult));
@@ -239,13 +320,14 @@ export async function POST(request: Request) {
             totalLinhas: rawData.length,
             pedidosCancelados: cancelados.length,
             pedidosImportados: novos.length,
-            pedidosDuplicados: duplicados.length,
+            pedidosAtualizados: atualizados.length,
+            pedidosDuplicados: duplicadosSemAlteracao.length,
             pedidosNaoCancelados: naoCancelados.length,
             tempoProcessamento,
             detalhes: {
-                // Mostra numero do pedido com abreviacao da filial para melhor identificacao
                 importados: novos.map(d => `${d.numeroPedido}`),
-                duplicados: duplicados.map(d => `${d.numeroPedido}`),
+                atualizados: atualizados.map(d => `${d.numeroPedido}`),
+                duplicados: duplicadosSemAlteracao.map(d => `${d.numeroPedido}`),
                 naoCancelados: naoCancelados.map(n => `${n.numeroPedido}`),
             }
         };
