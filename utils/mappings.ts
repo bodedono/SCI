@@ -6,9 +6,10 @@ export const MAPEAMENTO_STATUS_IMPORTACAO: Record<string, 'CANCELADO' | 'FINALIZ
     'Este pedido foi cancelado pela sua loja': 'CANCELADO',
     'Sua loja aceitou a solicitação do cliente': 'CANCELADO',
 
-    // FINALIZADO - iFood já reembolsou
+    // FINALIZADO - iFood já reembolsou ou não há impedimento
     'O cancelamento deste pedido foi analisado e o reembolso já foi aprovado para sua loja': 'FINALIZADO',
     'O iFood proativamente reembolsou sua loja': 'FINALIZADO',
+    'N/A': 'FINALIZADO',
 };
 
 /**
