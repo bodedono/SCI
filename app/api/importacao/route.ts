@@ -258,7 +258,7 @@ export async function POST(request: Request) {
 
         if (novos.length > 0) {
             // Obter ultimo ID
-            let lastRowIndex = await getLastRow(SHEET_NAME);
+            const lastRowIndex = await getLastRow(SHEET_NAME);
             let currentId = lastRowIndex > 2 ? lastRowIndex - 2 : 1;
 
             for (const row of novos) {

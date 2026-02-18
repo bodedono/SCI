@@ -1,16 +1,26 @@
 // lib/googleSheets.ts - Edge Runtime compatible (fetch + Web Crypto API)
+// Uses @cloudflare/next-on-pages for env vars on Cloudflare, process.env fallback for local dev
+
+import { getOptionalRequestContext } from '@cloudflare/next-on-pages';
 
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 
-const CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || '';
-const PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID || '1FnOYddjOYdqx8kZgxvtWn2sLAejJYOWto1XMXa3n7ag';
+// Lazy config - reads env vars at request time (not module load time)
+function getConfig() {
+    const cfEnv = getOptionalRequestContext()?.env as Record<string, string> | undefined;
+    return {
+        clientEmail: cfEnv?.GOOGLE_CLIENT_EMAIL || process.env.GOOGLE_CLIENT_EMAIL || '',
+        privateKey: (cfEnv?.GOOGLE_PRIVATE_KEY || process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+        spreadsheetId: cfEnv?.GOOGLE_SPREADSHEET_ID || process.env.GOOGLE_SPREADSHEET_ID || '1FnOYddjOYdqx8kZgxvtWn2sLAejJYOWto1XMXa3n7ag',
+    };
+}
 
-// Token cache
+// Token cache (invalidates when email changes)
 let cachedToken: string | null = null;
 let tokenExpiry = 0;
+let cachedEmail = '';
 
 // Base64url encode bytes
 function base64urlEncode(data: Uint8Array): string {
@@ -49,12 +59,12 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
 }
 
 // Create a signed JWT for Google service account
-async function createSignedJwt(): Promise<string> {
+async function createSignedJwt(clientEmail: string, privateKey: string): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
 
     const header = base64urlEncodeString(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
     const payload = base64urlEncodeString(JSON.stringify({
-        iss: CLIENT_EMAIL,
+        iss: clientEmail,
         scope: SCOPES,
         aud: TOKEN_URL,
         iat: now,
@@ -62,7 +72,7 @@ async function createSignedJwt(): Promise<string> {
     }));
 
     const signingInput = `${header}.${payload}`;
-    const key = await importPrivateKey(PRIVATE_KEY);
+    const key = await importPrivateKey(privateKey);
 
     const signature = await crypto.subtle.sign(
         'RSASSA-PKCS1-v1_5',
@@ -75,13 +85,15 @@ async function createSignedJwt(): Promise<string> {
 
 // Get access token with caching
 async function getAccessToken(): Promise<string> {
+    const config = getConfig();
     const now = Date.now();
 
-    if (cachedToken && tokenExpiry > now + 60000) {
+    // Invalidate cache if email changed or token expired
+    if (cachedToken && cachedEmail === config.clientEmail && tokenExpiry > now + 60000) {
         return cachedToken;
     }
 
-    const jwt = await createSignedJwt();
+    const jwt = await createSignedJwt(config.clientEmail, config.privateKey);
 
     const response = await fetch(TOKEN_URL, {
         method: 'POST',
@@ -100,15 +112,17 @@ async function getAccessToken(): Promise<string> {
     const data = await response.json();
     cachedToken = data.access_token;
     tokenExpiry = now + (data.expires_in * 1000);
+    cachedEmail = config.clientEmail;
 
     return cachedToken!;
 }
 
-// Authenticated fetch to Google Sheets API (values endpoints)
+// Authenticated fetch to Google Sheets API
 async function sheetsApiFetch(path: string, options: RequestInit = {}): Promise<any> {
+    const { spreadsheetId } = getConfig();
     const token = await getAccessToken();
 
-    const response = await fetch(`${SHEETS_API_BASE}/${SPREADSHEET_ID}${path}`, {
+    const response = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}${path}`, {
         ...options,
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -233,6 +247,7 @@ export async function deleteMultipleRows(sheetName: string, rowNumbers: number[]
             return { deletedRows: 0 };
         }
 
+        const { spreadsheetId } = getConfig();
         const sheetId = await getSheetId(sheetName);
 
         // Sort descending to avoid index shifting
@@ -252,7 +267,7 @@ export async function deleteMultipleRows(sheetName: string, rowNumbers: number[]
         console.log(`[deleteMultipleRows] Deleting ${rowNumbers.length} rows: ${sortedRows.join(', ')}`);
 
         const token = await getAccessToken();
-        const response = await fetch(`${SHEETS_API_BASE}/${SPREADSHEET_ID}:batchUpdate`, {
+        const response = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -312,6 +327,7 @@ export async function batchUpdateCells(updates: { range: string; values: any[][]
             return { updatedCells: 0 };
         }
 
+        const { spreadsheetId } = getConfig();
         const requestData = updates.map(u => ({
             range: u.range,
             values: u.values,
@@ -319,7 +335,7 @@ export async function batchUpdateCells(updates: { range: string; values: any[][]
 
         const token = await getAccessToken();
         const response = await fetch(
-            `${SHEETS_API_BASE}/${SPREADSHEET_ID}/values:batchUpdate`,
+            `${SHEETS_API_BASE}/${spreadsheetId}/values:batchUpdate`,
             {
                 method: 'POST',
                 headers: {
