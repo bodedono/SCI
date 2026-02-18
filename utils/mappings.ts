@@ -1,20 +1,25 @@
 
-// Mapeamento para determinar STATUS na importação baseado no "MOTIVO DA IMPOSSIBILIDADE DE CONTESTAR"
-export const MAPEAMENTO_STATUS_IMPORTACAO: Record<string, 'CANCELADO' | 'FINALIZADO'> = {
-    // CANCELADO - Responsabilidade do restaurante, não faz sentido contestar
-    'SUA LOJA CANCELOU O PEDIDO POR ITEM INDISPONÍVEL': 'CANCELADO',
-    'ESTE PEDIDO FOI CANCELADO PELA SUA LOJA': 'CANCELADO',
-    'SUA LOJA ACEITOU A SOLICITAÇÃO DO CLIENTE': 'CANCELADO',
+// Palavras-chave para determinar status CANCELADO na importação
+const KEYWORDS_CANCELADO = [
+    'SUA LOJA CANCELOU',
+    'FOI CANCELADO PELA SUA LOJA',
+    'SUA LOJA ACEITOU',
+];
 
-    // FINALIZADO - iFood já reembolsou ou não há impedimento
-    'O CANCELAMENTO DESTE PEDIDO FOI ANALISADO E O REEMBOLSO JÁ FOI APROVADO PARA SUA LOJA': 'FINALIZADO',
-    'O IFOOD PROATIVAMENTE REEMBOLSOU SUA LOJA': 'FINALIZADO',
-    'N/A': 'FINALIZADO',
-};
+// Palavras-chave para determinar status FINALIZADO na importação
+const KEYWORDS_FINALIZADO = [
+    'REEMBOLSO',
+    'REEMBOLSOU',
+    'NÃO É CONTESTÁVEL',
+    'NAO E CONTESTAVEL',
+    'NÃO É CONTESTAVEL',
+    'NAO É CONTESTÁVEL',
+];
 
 /**
  * Determina o status inicial de uma contestação durante a importação
- * baseado no motivo da impossibilidade de contestar e no valor líquido
+ * baseado no motivo da impossibilidade de contestar e no valor líquido.
+ * Usa busca parcial por palavras-chave para lidar com variações de texto do iFood.
  */
 export function determinarStatusImportacao(
     motivoNaoContestar: string,
@@ -22,18 +27,27 @@ export function determinarStatusImportacao(
 ): 'AGUARDANDO' | 'FINALIZADO' | 'CANCELADO' {
     const motivo = (motivoNaoContestar || '').trim().toUpperCase();
 
-    // 1. Verificar mapeamento exato
-    const statusMapeado = MAPEAMENTO_STATUS_IMPORTACAO[motivo];
-    if (statusMapeado) {
-        return statusMapeado;
+    // 1. N/A ou vazio = FINALIZADO (não há impedimento)
+    if (motivo === 'N/A' || motivo === '') {
+        return 'FINALIZADO';
     }
 
-    // 2. Fallback: se teve reembolso (valor líquido > 0)
+    // 2. Buscar por palavras-chave de CANCELADO (loja cancelou/aceitou)
+    if (KEYWORDS_CANCELADO.some(kw => motivo.includes(kw))) {
+        return 'CANCELADO';
+    }
+
+    // 3. Buscar por palavras-chave de FINALIZADO (reembolso, não contestável)
+    if (KEYWORDS_FINALIZADO.some(kw => motivo.includes(kw))) {
+        return 'FINALIZADO';
+    }
+
+    // 4. Fallback: se teve reembolso (valor líquido > 0)
     if (valorLiquido > 0) {
         return 'FINALIZADO';
     }
 
-    // 3. Default: aguardando contestação
+    // 5. Default: aguardando contestação
     return 'AGUARDANDO';
 }
 

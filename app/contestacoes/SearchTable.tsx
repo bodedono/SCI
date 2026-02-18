@@ -4,8 +4,9 @@ import { useEffect, useState, useMemo } from "react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { Search, Loader2, ChevronLeft, ChevronRight, Edit2, Trash2, Filter, X, RefreshCw, CheckSquare, Square, Trash } from "lucide-react";
+import { Search, Loader2, ChevronLeft, ChevronRight, Edit2, Edit3, Trash2, Filter, X, RefreshCw, CheckSquare, Square, Trash } from "lucide-react";
 import EditModal from "@/components/EditModal";
+import BatchEditModal from "@/components/BatchEditModal";
 import clsx from "clsx";
 
 // Helper para parsear data DD/MM/YYYY ou DD/MM/YYYY HH:MM:SS para Date
@@ -46,6 +47,7 @@ export default function SearchTable() {
     // Selection State for batch delete
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isBatchEditOpen, setIsBatchEditOpen] = useState(false);
 
     // Extrair opcoes unicas dos dados
     const filterOptions = useMemo(() => {
@@ -308,6 +310,12 @@ export default function SearchTable() {
                 data={selectedItem}
                 onSave={handleSave}
             />
+            <BatchEditModal
+                isOpen={isBatchEditOpen}
+                onClose={() => setIsBatchEditOpen(false)}
+                selectedIds={Array.from(selectedIds)}
+                onSave={() => { clearSelection(); fetchData(); }}
+            />
 
             {/* Search Bar + Filter Toggle */}
             <div className="flex flex-col sm:flex-row gap-3">
@@ -435,9 +443,18 @@ export default function SearchTable() {
                             <X className="w-4 h-4 mr-1" />
                             Cancelar
                         </Button>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsBatchEditOpen(true)}
+                            className="bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
+                        >
+                            <Edit3 className="w-4 h-4 mr-1" />
+                            Editar selecionados
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={handleBatchDelete}
                             disabled={isDeleting}
                             className="bg-red-500 text-white border-red-500 hover:bg-red-600"
