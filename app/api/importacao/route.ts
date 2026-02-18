@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextResponse } from 'next/server';
 import { getSheetData, appendMultipleRows, getLastRow, batchUpdateCells } from '@/lib/googleSheets';
 import * as XLSX from 'xlsx';

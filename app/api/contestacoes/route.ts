@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextResponse } from 'next/server';
 import { getSheetData, appendRow, getLastRow, updateRow, deleteRow } from '@/lib/googleSheets';
 
