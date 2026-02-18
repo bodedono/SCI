@@ -38,10 +38,11 @@ function base64urlEncodeString(str: string): string {
 
 // Import PEM private key for Web Crypto (PKCS#8)
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
+    // Strip exact PEM headers and keep only valid base64 characters
     const pemContents = pem
-        .replace(/-----BEGIN .*-----/g, '')
-        .replace(/-----END .*-----/g, '')
-        .replace(/\s/g, '');
+        .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+        .replace(/-----END PRIVATE KEY-----/g, '')
+        .replace(/[^A-Za-z0-9+/=]/g, ''); // Remove everything except base64 chars
 
     const binaryString = atob(pemContents);
     const bytes = new Uint8Array(binaryString.length);

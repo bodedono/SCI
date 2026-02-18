@@ -29,9 +29,9 @@ export async function GET() {
         // Step 2: Import private key
         try {
             const pemContents = privateKey
-                .replace(/-----BEGIN .*-----/g, '')
-                .replace(/-----END .*-----/g, '')
-                .replace(/\s/g, '');
+                .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+                .replace(/-----END PRIVATE KEY-----/g, '')
+                .replace(/[^A-Za-z0-9+/=]/g, '');
 
             results.steps.pemParse = {
                 ok: true,
@@ -80,9 +80,9 @@ export async function GET() {
             const signingInput = `${header}.${payload}`;
 
             const pemContents = privateKey
-                .replace(/-----BEGIN .*-----/g, '')
-                .replace(/-----END .*-----/g, '')
-                .replace(/\s/g, '');
+                .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+                .replace(/-----END PRIVATE KEY-----/g, '')
+                .replace(/[^A-Za-z0-9+/=]/g, '');
             const binaryString = atob(pemContents);
             const bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
